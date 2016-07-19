@@ -30,7 +30,7 @@ var mv = require('mv');
     var current_app_dir = null;
     var check_for_installed_dir = function (version, done) {
         current_app_dir = path.resolve(root, "app-" + version);
-        if (target != 'update.exe' && target != 'squirrel.exe') {
+        if (target != 'update.exe' && target != 'squirrel.exe' && target != 'coughdrop.exe') {
             console.log("not called as part of an update")
         }
 
