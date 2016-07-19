@@ -162,7 +162,7 @@ var mv = require('mv');
         }
       };
       next_path();
-    });
+    };
     var move_language_directories = function (paths_to_assert, done) {
         console.log("moving language directories");
         var next_path = function () {
