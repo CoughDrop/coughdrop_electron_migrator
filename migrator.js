@@ -1,6 +1,6 @@
 var fs = require('fs');
 var path = require('path');
-var mv = require('mv');
+var mergedirs = require('merge-dirs');
 
 (function () {
   // look for "../app.ico"
@@ -29,7 +29,7 @@ var mv = require('mv');
   var temp = null;
   if(root) {
     var local = path.resolve(root, '..', 'Temp', 'coughdrop');
-    if(local.match(/Local$/)) {
+    if(local.match(/Local/)) {
       temp = local;
     }
   }
@@ -70,7 +70,7 @@ var mv = require('mv');
       } else {
         var prior_installs = [];
         res.forEach(function (app_dir) {
-          if (app_dir.match(/^app-/) && !app_dir.match(/\./) && app_dir != current_app_dir) {
+          if (app_dir.match(/^app-/) && path.resolve(root, app_dir) != current_app_dir) {
             console.log("found prior install, " + app_dir);
             prior_installs.push(path.resolve(root, app_dir));
           }
@@ -89,7 +89,11 @@ var mv = require('mv');
       var dir = prior_installs.pop();
       if (!dir) {
         console.log("found " + data_directories.length + " data directories");
-        clone_data_directories(data_directories, done);
+        console.log("asserting data directory");
+        fs.mkdir(path.resolve(root, current_app_dir, 'data'), function(err, res) {
+          if(err) { console.log(err);
+          clone_data_directories(data_directories, done);
+        });
       } else {
         var data_dir = dir;
         fs.stat(data_dir, function (err, res) {
@@ -184,7 +188,7 @@ var mv = require('mv');
         console.log("done!");
         done();
       } else {
-        var dest = path.resolve(root, current_app_directory, 'data', ref.language, ref.resource);
+        var dest = path.resolve(root, current_app_dir, 'data', ref.language, ref.resource);
         console.log("checking for existence of " + dest);
         fs.stat(dest, function (err, res) {
           if (err) {
@@ -212,8 +216,12 @@ var mv = require('mv');
       if(root && temp) {
         var src_data_dir = path.resolve(root, "app-" + version, "data");
         var dest_data_dir = path.resolve(temp, "data");
-        mv(src_data_dir, dest_data_dir, { mkdirp: true }, done);
+        console.log("moving " + src_data_dir + " to " + dest_data_dir);
+        (mergedirs.default || mergedirs)(src_data_dir, dest_data_dir, 'overwrite');
+        done();
       } else {
+        console.log("root: " + root);
+        console.log("temp: " + temp);
         console.log("couldn't find a needed folder");
       }
     }
