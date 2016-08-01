@@ -1,14 +1,14 @@
 {
   "main": "migrator",
   "name": "migrator",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "tool for migrating contents from one install to another",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/coughdrop/coughdrop_electron_migrator.git"
   },
   "dependencies": {
-    "mv": "latest"
+    "merge-dirs": "latest"
   },
   "readme": "README.md"
 }
