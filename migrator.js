@@ -91,7 +91,7 @@ var mergedirs = require('merge-dirs');
         console.log("found " + data_directories.length + " data directories");
         console.log("asserting data directory");
         fs.mkdir(path.resolve(root, current_app_dir, 'data'), function(err, res) {
-          if(err) { console.log(err);
+          if(err) { console.log(err); }
           clone_data_directories(data_directories, done);
         });
       } else {
