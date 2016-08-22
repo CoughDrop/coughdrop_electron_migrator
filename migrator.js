@@ -36,17 +36,19 @@ var mergedirs = require('merge-dirs');
 
   var current_app_dir = null;
   
+  // should be in an app directory
   var check_for_installed_dir = function (version, done) {
     current_app_dir = path.resolve(root, "app-" + version);
     if (target != 'update.exe' && target != 'squirrel.exe' && target != 'coughdrop.exe') {
       console.log("not called as part of an update")
     }
-
+    // with an app.ico file, to double-check
     fs.stat(path.resolve(root, "app.ico"), function (err, res) {
       if (err) {
         console.log("app.ico not found, nothing to do");
         done();
       } else {
+        // confirm that the app directory is a valid directory
         fs.stat(current_app_dir, function(err, res) {
           if(res && res.isDirectory()) {
             console.log("app directory found, looking for prior installs");
@@ -60,6 +62,7 @@ var mergedirs = require('merge-dirs');
     });
   };
   
+  // iterate through any prior installs
   var check_for_prior_installs = function (done) {
     console.log("checking for prior install directories");
     fs.readdir(root, function (err, res) {
@@ -69,6 +72,7 @@ var mergedirs = require('merge-dirs');
         done();
       } else {
         var prior_installs = [];
+        // add prior installs to a list
         res.forEach(function (app_dir) {
           if (app_dir.match(/^app-/) && path.resolve(root, app_dir) != current_app_dir) {
             console.log("found prior install, " + app_dir);
@@ -82,20 +86,24 @@ var mergedirs = require('merge-dirs');
   };
   
   var handle_prior_installs = function (prior_installs, done) {
+    // also check the temp directory for any prior installs
     prior_installs.push(temp);
     var data_directories = [];
     console.log("handling prior installs");
     var next_prior = function () {
       var dir = prior_installs.pop();
+      // once they're all done, proceed
       if (!dir) {
         console.log("found " + data_directories.length + " data directories");
         console.log("asserting data directory");
+        // data directory must exist on destination
         fs.mkdir(path.resolve(root, current_app_dir, 'data'), function(err, res) {
           if(err) { console.log(err); }
           clone_data_directories(data_directories, done);
         });
       } else {
-        var data_dir = dir;
+        // check that the entry has a data directory, add it to the list
+        var data_dir = path.resolve(dir, 'data');
         fs.stat(data_dir, function (err, res) {
           if (res && res.isDirectory()) {
             console.log("found data directory, " + data_dir);
@@ -108,6 +116,7 @@ var mergedirs = require('merge-dirs');
     next_prior();
   };
   
+  // iterate through prior data directories, looking for sub-folders
   var clone_data_directories = function (data_directories, done) {
     console.log("cloning data directories");
     var paths_to_assert = [];
@@ -158,6 +167,7 @@ var mergedirs = require('merge-dirs');
     next_dir();
   };
   
+  // all the locale and voice directories should be valid, if they are queue them for moving
   var check_resource_directories = function(paths_to_assert, done) {
     var valid_paths_to_assert = [];
     var next_path = function() {
@@ -180,6 +190,7 @@ var mergedirs = require('merge-dirs');
     next_path();
   };
   
+  // move all locale and voice directories to the new app path unless they already exist
   var move_language_directories = function (paths_to_assert, done) {
     console.log("moving language directories");
     var next_path = function () {
