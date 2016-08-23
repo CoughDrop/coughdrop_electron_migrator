@@ -1,6 +1,7 @@
 var fs = require('fs');
 var path = require('path');
 var mergedirs = require('merge-dirs');
+var cp = require('child_process');
 
 (function () {
   // look for "../app.ico"
@@ -124,7 +125,8 @@ var mergedirs = require('merge-dirs');
       var data_dir = data_directories.pop();
       if (!data_dir) {
         console.log("found " + paths_to_assert.length + " resource directories");
-        check_resource_directories(paths_to_assert, done);
+        done();
+//         check_resource_directories(paths_to_assert, done);
       } else {
         console.log("checking " + data_dir + " for resources");
         fs.readdir(data_dir, function (err, res) {
@@ -133,33 +135,40 @@ var mergedirs = require('merge-dirs');
             console.log(err);
             next_dir();
           } else {
+            // xcopy src dest /e /y /i
+            var dest = path.resolve(root, current_app_dir, 'data');
+            var child = cp.exec("xcopy /y /e /i \"" + data_dir + "\" \"" + dest + "\"", function(err) {
+              if (err) { console.log("error moving"); console.log(err); }
+              next_dir();
+            });
+            
             // create duplicates of language directories in the current app folder
             // and check for all voice and locale directories in each language directory
-            res.forEach(function (language) {
-              fs.stat(path.resolve(data_dir, language), function(err, res) {
-                if(err) { console.log(err); }
-                if (language && res && res.isDirectory()) {
-                  console.log("found language, " + language);
-                  fs.mkdir(path.resolve(root, current_app_dir, 'data', language), function (err, res) {
-                    console.log("cloned language folder, looking for resources");
-                    if (err) { console.log(err); }
-                    fs.readdir(path.resolve(data_dir, language), function (err, res) {
-                      if (res) {
-                        res.forEach(function (resource) {
-                          console.log("found possible resource, " + resource);
-                          paths_to_assert.push({
-                            source_dir: data_dir,
-                            language: language,
-                            resource: resource
-                          });
-                        });
-                      }
-                      next_dir();
-                    });
-                  });
-                }
-              });
-            });
+//             res.forEach(function (language) {
+//               fs.stat(path.resolve(data_dir, language), function(err, res) {
+//                 if(err) { console.log(err); }
+//                 if (language && res && res.isDirectory()) {
+//                   console.log("found language, " + language);
+//                   fs.mkdir(path.resolve(root, current_app_dir, 'data', language), function (err, res) {
+//                     console.log("cloned language folder, looking for resources");
+//                     if (err) { console.log(err); }
+//                     fs.readdir(path.resolve(data_dir, language), function (err, res) {
+//                       if (res) {
+//                         res.forEach(function (resource) {
+//                           console.log("found possible resource, " + resource);
+//                           paths_to_assert.push({
+//                             source_dir: data_dir,
+//                             language: language,
+//                             resource: resource
+//                           });
+//                         });
+//                       }
+//                       next_dir();
+//                     });
+//                   });
+//                 }
+//               });
+//             });
           }
         });
       }
@@ -168,56 +177,58 @@ var mergedirs = require('merge-dirs');
   };
   
   // all the locale and voice directories should be valid, if they are queue them for moving
-  var check_resource_directories = function(paths_to_assert, done) {
-    var valid_paths_to_assert = [];
-    var next_path = function() {
-      var ref = paths_to_assert.pop();
-      if(!ref) {
-        console.log("found " + valid_paths_to_assert.length + " valid resources");
-        move_language_directories(valid_paths_to_assert, done);
-      } else {
-        var full_path = path.resolve(ref.source_dir, ref.language, ref.resource);
-        console.log("checking " + full_path);
-        fs.stat(full_path, function(err, res) {
-          if(err) { console.log(err); }
-          if(res && res.isDirectory()) {
-            valid_paths_to_assert.push(ref);
-          }
-          next_path();
-        });
-      }
-    };
-    next_path();
-  };
+//   var check_resource_directories = function(paths_to_assert, done) {
+//     var valid_paths_to_assert = [];
+//     var next_path = function() {
+//       var ref = paths_to_assert.pop();
+//       if(!ref) {
+//         console.log("found " + valid_paths_to_assert.length + " valid resources");
+//         move_language_directories(valid_paths_to_assert, done);
+//       } else {
+//         var full_path = path.resolve(ref.source_dir, ref.language, ref.resource);
+//         console.log("checking " + full_path);
+//         
+//         fs.stat(full_path, function(err, res) {
+//           if(err) { console.log(err); }
+//           if(res && res.isDirectory()) {
+//             valid_paths_to_assert.push(ref);
+//           }
+//           next_path();
+//         });
+//       }
+//     };
+//     next_path();
+//   };
   
   // move all locale and voice directories to the new app path unless they already exist
-  var move_language_directories = function (paths_to_assert, done) {
-    console.log("moving language directories");
-    var next_path = function () {
-      var ref = paths_to_assert.pop();
-      if (!ref) {
-        console.log("done!");
-        done();
-      } else {
-        var dest = path.resolve(root, current_app_dir, 'data', ref.language, ref.resource);
-        console.log("checking for existence of " + dest);
-        fs.stat(dest, function (err, res) {
-          if (err) {
-            var prior = path.resolve(ref.source_dir, ref.language, ref.resource);
-            console.log("moving " + prior + " to " + dest);
-            fs.rename(prior, dest, function (err) {
-              if (err) { console.log("error moving"); console.log(err); }
-              next_path();
-            });
-          } else {
-            console.log(dest + " already exists, skipping");
-            next_path();
-          }
-        });
-      }
-    };
-    next_path();
-  };
+//   var move_language_directories = function (paths_to_assert, done) {
+//     console.log("moving language directories");
+//     var next_path = function () {
+//       var ref = paths_to_assert.pop();
+//       if (!ref) {
+//         console.log("done!");
+//         done();
+//       } else {
+//         var dest = path.resolve(root, current_app_dir, 'data', ref.language, ref.resource);
+//         console.log("checking for existence of " + dest);
+//         fs.stat(dest, function (err, res) {
+//           if (err) {
+//             var prior = path.resolve(ref.source_dir, ref.language, ref.resource);
+//             console.log("copying " + prior + " to " + dest);
+//             // xcopy src dest /e /y /i
+//             var child = cp.exec("xcopy /y /e /i \"" + prior + "\" \"" + dest + "\"", function(err) {
+//               if (err) { console.log("error moving"); console.log(err); }
+//               next_path();
+//             });
+//           } else {
+//             console.log(dest + " already exists, skipping");
+//             next_path();
+//           }
+//         });
+//       }
+//     };
+//     next_path();
+//   };
 
   module.exports = {
     start: function (version, done) {
