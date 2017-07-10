@@ -1,6 +1,5 @@
 var fs = require('fs');
 var path = require('path');
-var mergedirs = require('merge-dirs');
 var cp = require('child_process');
 
 (function () {
@@ -239,8 +238,18 @@ var cp = require('child_process');
         var src_data_dir = path.resolve(root, "app-" + version, "data");
         var dest_data_dir = path.resolve(temp, "data");
         console.log("moving " + src_data_dir + " to " + dest_data_dir);
-        (mergedirs.default || mergedirs)(src_data_dir, dest_data_dir, 'overwrite');
-        done();
+        fs.mkdir(dest_data_dir), function(err, res) {
+          if(err) { 
+            console.log(err); 
+          } else {
+            // xcopy src dest /e /y /i
+            var child = cp.exec("xcopy /y /e /i \"" + src_data_dir + "\" \"" + dest_data_dir + "\"", function(err) {
+              if (err) { console.log("error moving"); console.log(err); }
+              done();
+            });
+          }
+          clone_data_directories(data_directories, done);
+        });
       } else {
         console.log("root: " + root);
         console.log("temp: " + temp);
