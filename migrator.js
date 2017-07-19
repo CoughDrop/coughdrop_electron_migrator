@@ -238,7 +238,7 @@ var cp = require('child_process');
         var src_data_dir = path.resolve(root, "app-" + version, "data");
         var dest_data_dir = path.resolve(temp, "data");
         console.log("moving " + src_data_dir + " to " + dest_data_dir);
-        fs.mkdir(dest_data_dir), function(err, res) {
+        fs.mkdir(dest_data_dir, function(err, res) {
           if(err) { 
             console.log(err); 
           } else {
