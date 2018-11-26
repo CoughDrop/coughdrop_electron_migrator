@@ -3,6 +3,8 @@ var path = require('path');
 var cp = require('child_process');
 
 (function () {
+  // everything should now go to the AppData/coughdrop folder
+  // since we figured out a way for acapela to load from there
   // look for "../app.ico"
   // if it exists, look for directories that start with "app-"
   // if they don't match the current app-* directory, look for a /data folder"
@@ -13,6 +15,7 @@ var cp = require('child_process');
   console.log("cwd: " + process.cwd());
   console.log("execPath: " + process.execPath);
   var target = path.basename(process.execPath);
+  var app_data = path.resolve(process.env.APPDATA, 'coughdrop');
   var root = path.dirname(process.execPath);
   if (path.basename(root).match(/^app/)) {
     root = path.dirname(root);
@@ -28,10 +31,8 @@ var cp = require('child_process');
   }
   var temp = null;
   if(root) {
-    var local = path.resolve(root, '..', 'Temp', 'coughdrop');
-    if(local.match(/Local/)) {
-      temp = local;
-    }
+    var local = path.resolve(app_data, 'tmp');
+    temp = local;
   }
 
   var current_app_dir = null;
@@ -42,20 +43,31 @@ var cp = require('child_process');
     if (target != 'update.exe' && target != 'squirrel.exe' && target != 'coughdrop.exe') {
       console.log("not called as part of an update")
     }
-    // with an app.ico file, to double-check
-    fs.stat(path.resolve(root, "app.ico"), function (err, res) {
-      if (err) {
-        console.log("app.ico not found, nothing to do");
-        done();
+    if(!app_data) {
+      console.log("APPDATA not available, nothing to do");
+      done();
+    }
+    // assert APPDATA/coughdrop directory
+    fs.mkdir(path.resolve(app_data), function(err, res) {
+      if(err) { 
+        console.log("error asserting APPDATA"); console.log(err); 
       } else {
-        // confirm that the app directory is a valid directory
-        fs.stat(current_app_dir, function(err, res) {
-          if(res && res.isDirectory()) {
-            console.log("app directory found, looking for prior installs");
-            check_for_prior_installs(done);
-          } else {
-            console.log("app directory not found, nothing to do");
+        // with an app.ico file, to double-check
+        fs.stat(path.resolve(root, "app.ico"), function (err, res) {
+          if (err) {
+            console.log("app.ico not found, nothing to do");
             done();
+          } else {
+            // confirm that the app directory is a valid directory
+            fs.stat(current_app_dir, function(err, res) {
+              if(res && res.isDirectory()) {
+                console.log("app directory found, looking for prior installs");
+                check_for_prior_installs(done);
+              } else {
+                console.log("app directory not found, nothing to do");
+                done();
+              }
+            });
           }
         });
       }
@@ -97,7 +109,8 @@ var cp = require('child_process');
         console.log("found " + data_directories.length + " data directories");
         console.log("asserting data directory");
         // data directory must exist on destination
-        fs.mkdir(path.resolve(root, current_app_dir, 'data'), function(err, res) {
+        fs.mkdir(path.resolve(app_data, 'speech'), function(err, res) {
+        // fs.mkdir(path.resolve(root, current_app_dir, 'data'), function(err, res) {
           if(err) { console.log(err); }
           clone_data_directories(data_directories, done);
         });
@@ -117,15 +130,18 @@ var cp = require('child_process');
   };
   
   // iterate through prior data directories, looking for sub-folders
-  var clone_data_directories = function (data_directories, done) {
+  var clone_data_directories = function (data_directories, done, clone_only) {
     console.log("cloning data directories");
-    var paths_to_assert = [];
+    var paths_checked = [];
     var next_dir = function () {
       var data_dir = data_directories.pop();
       if (!data_dir) {
-        console.log("found " + paths_to_assert.length + " resource directories");
-        done();
-//         check_resource_directories(paths_to_assert, done);
+        console.log("found " + paths_checked.length + " resource directories");
+        if(clone_only) {
+          done();
+        } else {
+          clone_files(done);
+        }
       } else {
         console.log("checking " + data_dir + " for resources");
         fs.readdir(data_dir, function (err, res) {
@@ -135,99 +151,28 @@ var cp = require('child_process');
             next_dir();
           } else {
             // xcopy src dest /e /y /i
-            var dest = path.resolve(root, current_app_dir, 'data');
+            var dest = path.resolve(app_data, 'speech', 'acap');
             var child = cp.exec("xcopy /y /e /i \"" + data_dir + "\" \"" + dest + "\"", function(err) {
-              if (err) { console.log("error moving"); console.log(err); }
+              if (err) { console.log("error moving speech from " + data_dir); console.log(err); }
+              paths_checked.push(dest);
               next_dir();
             });
-            
-            // create duplicates of language directories in the current app folder
-            // and check for all voice and locale directories in each language directory
-//             res.forEach(function (language) {
-//               fs.stat(path.resolve(data_dir, language), function(err, res) {
-//                 if(err) { console.log(err); }
-//                 if (language && res && res.isDirectory()) {
-//                   console.log("found language, " + language);
-//                   fs.mkdir(path.resolve(root, current_app_dir, 'data', language), function (err, res) {
-//                     console.log("cloned language folder, looking for resources");
-//                     if (err) { console.log(err); }
-//                     fs.readdir(path.resolve(data_dir, language), function (err, res) {
-//                       if (res) {
-//                         res.forEach(function (resource) {
-//                           console.log("found possible resource, " + resource);
-//                           paths_to_assert.push({
-//                             source_dir: data_dir,
-//                             language: language,
-//                             resource: resource
-//                           });
-//                         });
-//                       }
-//                       next_dir();
-//                     });
-//                   });
-//                 }
-//               });
-//             });
           }
         });
       }
     };
     next_dir();
   };
-  
-  // all the locale and voice directories should be valid, if they are queue them for moving
-//   var check_resource_directories = function(paths_to_assert, done) {
-//     var valid_paths_to_assert = [];
-//     var next_path = function() {
-//       var ref = paths_to_assert.pop();
-//       if(!ref) {
-//         console.log("found " + valid_paths_to_assert.length + " valid resources");
-//         move_language_directories(valid_paths_to_assert, done);
-//       } else {
-//         var full_path = path.resolve(ref.source_dir, ref.language, ref.resource);
-//         console.log("checking " + full_path);
-//         
-//         fs.stat(full_path, function(err, res) {
-//           if(err) { console.log(err); }
-//           if(res && res.isDirectory()) {
-//             valid_paths_to_assert.push(ref);
-//           }
-//           next_path();
-//         });
-//       }
-//     };
-//     next_path();
-//   };
-  
-  // move all locale and voice directories to the new app path unless they already exist
-//   var move_language_directories = function (paths_to_assert, done) {
-//     console.log("moving language directories");
-//     var next_path = function () {
-//       var ref = paths_to_assert.pop();
-//       if (!ref) {
-//         console.log("done!");
-//         done();
-//       } else {
-//         var dest = path.resolve(root, current_app_dir, 'data', ref.language, ref.resource);
-//         console.log("checking for existence of " + dest);
-//         fs.stat(dest, function (err, res) {
-//           if (err) {
-//             var prior = path.resolve(ref.source_dir, ref.language, ref.resource);
-//             console.log("copying " + prior + " to " + dest);
-//             // xcopy src dest /e /y /i
-//             var child = cp.exec("xcopy /y /e /i \"" + prior + "\" \"" + dest + "\"", function(err) {
-//               if (err) { console.log("error moving"); console.log(err); }
-//               next_path();
-//             });
-//           } else {
-//             console.log(dest + " already exists, skipping");
-//             next_path();
-//           }
-//         });
-//       }
-//     };
-//     next_path();
-//   };
+
+  var clone_files = function(done) {
+    var dest_files_dir = path.resolve(app_data, 'files');
+    var src_files_dir = path.resolve(root, 'files');
+    var child = cp.exec("xcopy /y /e /i \"" + src_files_dir + "\" \"" + dest_files_dir + "\"", function(err) {
+      if(err) { console.log("error moving files from " + src_files_dir); }
+      done();
+    })
+  };
+
 
   module.exports = {
     start: function (version, done) {
@@ -235,20 +180,20 @@ var cp = require('child_process');
     },
     preserve: function (version, done) {
       if(root && temp) {
-        var src_data_dir = path.resolve(root, "app-" + version, "data");
-        var dest_data_dir = path.resolve(temp, "data");
+        var src_data_dir = path.resolve(root, "app-" + version, 'data');
+        var dest_data_dir = path.resolve(app_data, "tmp");
         console.log("moving " + src_data_dir + " to " + dest_data_dir);
         fs.mkdir(dest_data_dir, function(err, res) {
           if(err) { 
             console.log(err); 
-          } else {
-            // xcopy src dest /e /y /i
-            var child = cp.exec("xcopy /y /e /i \"" + src_data_dir + "\" \"" + dest_data_dir + "\"", function(err) {
-              if (err) { console.log("error moving"); console.log(err); }
-              done();
-            });
+          // } else {
+          //   // xcopy src dest /e /y /i
+          //   var child = cp.exec("xcopy /y /e /i \"" + src_data_dir + "\" \"" + dest_data_dir + "\"", function(err) {
+          //     if (err) { console.log("error moving"); console.log(err); }
+          //     done();
+          //   });
           }
-          clone_data_directories(data_directories, done);
+          clone_data_directories([dest_data_dir], done, true);
         });
       } else {
         console.log("root: " + root);
