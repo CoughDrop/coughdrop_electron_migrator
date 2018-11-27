@@ -3,7 +3,7 @@ var path = require('path');
 var cp = require('child_process');
 
 (function () {
-  // everything should now go to the AppData/coughdrop folder
+  // everything should now go to the LOCALAPPDATA/coughdrop folder
   // since we figured out a way for acapela to load from there
   // look for "../app.ico"
   // if it exists, look for directories that start with "app-"
@@ -15,7 +15,12 @@ var cp = require('child_process');
   console.log("cwd: " + process.cwd());
   console.log("execPath: " + process.execPath);
   var target = path.basename(process.execPath);
-  var app_data = path.resolve(process.env.APPDATA, 'coughdrop');
+  var app_data = null;
+  var acap_dir = null;
+  if(process.env.LOCALAPPDATA) {
+    app_data = path.resolve(process.env.LOCALAPPDATA || '', 'coughdrop');
+    acap_dir = path.resolve(app_data, 'speech', 'acap');
+  }
   var root = path.dirname(process.execPath);
   if (path.basename(root).match(/^app/)) {
     root = path.dirname(root);
@@ -36,6 +41,22 @@ var cp = require('child_process');
   }
 
   var current_app_dir = null;
+  // check for or create the specified directory
+  var assert_dir = function(path, callback) {
+    fs.stat(path, function(err, stats) {
+      if(err) {
+        fs.mkdir(path, {recursive: true}, function(err, res) {
+          callback(err, res);
+        })
+      } else {
+        if(stats.isDirectory) {
+          callback();
+        } else {
+          callback({error: "not a directory"});
+        }
+      }
+    })
+  }
   
   // should be in an app directory
   var check_for_installed_dir = function (version, done) {
@@ -44,13 +65,13 @@ var cp = require('child_process');
       console.log("not called as part of an update")
     }
     if(!app_data) {
-      console.log("APPDATA not available, nothing to do");
+      console.log("LOCALAPPDATA not available, nothing to do");
       done();
     }
-    // assert APPDATA/coughdrop directory
-    fs.mkdir(path.resolve(app_data), function(err, res) {
+    // assert LOCALAPPDATA/coughdrop directory
+    assert_dir(app_data, function(err) {
       if(err) { 
-        console.log("error asserting APPDATA"); console.log(err); 
+        console.log("error asserting LOCALAPPDATA"); console.log(err); 
       } else {
         // with an app.ico file, to double-check
         fs.stat(path.resolve(root, "app.ico"), function (err, res) {
@@ -109,7 +130,7 @@ var cp = require('child_process');
         console.log("found " + data_directories.length + " data directories");
         console.log("asserting data directory");
         // data directory must exist on destination
-        fs.mkdir(path.resolve(app_data, 'speech'), function(err, res) {
+        assert_dir(acap_dir, function(err, res) {
         // fs.mkdir(path.resolve(root, current_app_dir, 'data'), function(err, res) {
           if(err) { console.log(err); }
           clone_data_directories(data_directories, done);
@@ -151,7 +172,7 @@ var cp = require('child_process');
             next_dir();
           } else {
             // xcopy src dest /e /y /i
-            var dest = path.resolve(app_data, 'speech', 'acap');
+            var dest = acap_dir;
             var child = cp.exec("xcopy /y /e /i \"" + data_dir + "\" \"" + dest + "\"", function(err) {
               if (err) { console.log("error moving speech from " + data_dir); console.log(err); }
               paths_checked.push(dest);
@@ -183,7 +204,7 @@ var cp = require('child_process');
         var src_data_dir = path.resolve(root, "app-" + version, 'data');
         var dest_data_dir = path.resolve(app_data, "tmp");
         console.log("moving " + src_data_dir + " to " + dest_data_dir);
-        fs.mkdir(dest_data_dir, function(err, res) {
+        assert_dir(dest_data_dir, function(err, res) {
           if(err) { 
             console.log(err); 
           // } else {
