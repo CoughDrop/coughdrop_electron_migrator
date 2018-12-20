@@ -49,7 +49,7 @@ var cp = require('child_process');
           callback(err, res);
         })
       } else {
-        if(stats.isDirectory) {
+        if(stats && stats.isDirectory()) {
           callback();
         } else {
           callback({error: "not a directory"});
