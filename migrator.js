@@ -19,7 +19,7 @@ var cp = require('child_process');
   var acap_dir = null;
   if(process.env.LOCALAPPDATA) {
     app_data = path.resolve(process.env.LOCALAPPDATA || '', 'coughdrop');
-    acap_dir = path.resolve(app_data, 'speech', 'acap');
+    acap_dir = app_data; //path.resolve(app_data, 'speech', 'acap');
   }
   var root = path.dirname(process.execPath);
   if (path.basename(root).match(/^app/)) {
