@@ -1,7 +1,7 @@
 {
   "main": "migrator",
   "name": "migrator",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "tool for migrating contents from one install to another",
   "repository": {
     "type": "git",

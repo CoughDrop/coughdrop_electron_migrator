@@ -19,7 +19,7 @@ var cp = require('child_process');
   var acap_dir = null;
   if(process.env.LOCALAPPDATA) {
     app_data = path.resolve(process.env.LOCALAPPDATA || '', 'coughdrop');
-    acap_dir = app_data; //path.resolve(app_data, 'speech', 'acap');
+    acap_dir = path.resolve(app_data, 'data');
   }
   var root = path.dirname(process.execPath);
   if (path.basename(root).match(/^app/)) {
@@ -42,12 +42,19 @@ var cp = require('child_process');
 
   var current_app_dir = null;
   // check for or create the specified directory
-  var assert_dir = function(path, callback) {
-    fs.stat(path, function(err, stats) {
+  var assert_dir = function(dir_path, callback, depth) {
+    depth = depth || 0;
+    fs.stat(dir_path, function(err, stats) {
       if(err) {
-        fs.mkdir(path, {recursive: true}, function(err, res) {
-          callback(err, res);
-        })
+        if(depth > 3) {
+          callback({error: 'too many nonexistant directories'});
+        } else {
+          assert_dir(path.basename(dir_path), function() {
+            fs.mkdir(dir_path, {recursive: true}, function(err, res) {
+              callback(err, res);
+            })
+          }, depth + 1);
+        }
       } else {
         if(stats && stats.isDirectory()) {
           callback();
