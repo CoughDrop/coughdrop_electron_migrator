@@ -127,7 +127,9 @@ var cp = require('child_process');
   
   var handle_prior_installs = function (prior_installs, done) {
     // also check the temp directory for any prior installs
-    prior_installs.push(temp);
+    if(temp) {
+      prior_installs.push(temp);
+    }
     var data_directories = [];
     console.log("handling prior installs");
     var next_prior = function () {
